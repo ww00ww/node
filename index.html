@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw Draw Draw</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        #controls {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+            background: #f8f8f8;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        #clearBtn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: red;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        #clearBtn:hover {
+            background: darkred;
+        }
+
+        canvas {
+            margin-top: 50px; /* Space for the fixed button */
+            width: 100%;
+            height: calc(100vh - 50px); /* Fill the rest of the screen */
+            background: white;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <button id="clearBtn">Clear</button>
+    </div>
+    <canvas id="drawingCanvas"></canvas>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const socket = io();
+
+        let drawing = false;
+
+        // Set canvas size to fill the window
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight - 50; // Subtract the height of the button
+
+        // Mouse down event to start drawing
+        canvas.addEventListener('mousedown', (e) => {
+            drawing = true;
+            draw(e);
+        });
+
+        // Mouse up event to stop drawing
+        canvas.addEventListener('mouseup', () => {
+            drawing = false;
+            ctx.beginPath();
+        });
+
+        // Mouse move event to draw
+        canvas.addEventListener('mousemove', (e) => {
+            if (drawing) {
+                draw(e);
+            }
+        });
+
+        // Function to draw on the canvas
+        function draw(e) {
+            let x = e.clientX - canvas.offsetLeft;
+            let y = e.clientY - canvas.offsetTop;
+
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = 'black';
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+
+            // Send drawing data to the server
+            socket.emit('draw', { x, y });
+        }
+
+        // Clear the canvas when the button is clicked
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Emit the clear event to all clients
+            socket.emit('clear');
+        });
+
+        // Listen for drawing events from other clients
+        socket.on('draw', (data) => {
+            ctx.lineTo(data.x, data.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(data.x, data.y);
+        });
+
+        // Listen for clear events from other clients
+        socket.on('clear', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+    </script>
+</body>
+</html>
